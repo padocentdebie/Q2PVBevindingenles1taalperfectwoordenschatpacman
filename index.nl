@@ -19,34 +19,32 @@
             appId: "1:20239054410:web:264b3c759312248d9f18b3"
         };
 
-        // Initialiseer Firebase alleen als het kan
         let db;
         try {
             const app = initializeApp(firebaseConfig);
             db = getFirestore(app);
         } catch (e) {
-            console.warn("Firebase kon niet laden, game draait in offline modus.");
+            console.warn("Firebase offline modus.");
         }
 
         window.saveScore = async () => {
             const naam = document.getElementById('uNaam').value;
             const klas = document.getElementById('uKlas').value;
             const huidigeScore = parseInt(document.getElementById('pScore').innerText);
-            if(!db) return alert("Database niet verbonden. Score alleen lokaal zichtbaar.");
+            if(!db) return alert("Geen verbinding met database.");
             if(huidigeScore > 0) {
                 await addDoc(collection(db, "pacman_scores"), { naam, klas, score: huidigeScore, ts: serverTimestamp() });
-                alert("PV Punten opgeslagen!");
+                alert("Score opgeslagen in het systeem!");
             }
         };
 
         window.resetLeaderboard = async () => {
             const klas = document.getElementById('uKlas').value;
-            if(!db) return alert("Geen database verbinding.");
-            if(!confirm("Leaderboard voor " + klas + " wissen?")) return;
+            if(!db || !confirm("Leaderboard voor " + klas + " wissen?")) return;
             const q = query(collection(db, "pacman_scores"), where("klas", "==", klas));
             const snapshot = await getDocs(q);
             await Promise.all(snapshot.docs.map(d => deleteDoc(d.ref)));
-            alert("Schoon dossier! Leaderboard is leeg.");
+            alert("Leaderboard gereset.");
         };
     </script>
 
@@ -98,12 +96,11 @@
                     <button onclick="startPacGame()" class="bg-yellow-500 text-black px-8 py-3 rounded-full font-black uppercase">Nieuwe Patrouille</button>
                 </div>
             </div>
-            <p class="text-blue-400 text-[10px] mt-4 text-center font-bold uppercase tracking-widest animate-pulse">Bestuur de eenheid met de pijltjestoetsen</p>
+            <p class="text-blue-400 text-[10px] mt-4 text-center font-bold uppercase tracking-widest animate-pulse">Bestuur de wagen met de pijltjestoetsen</p>
         </section>
     </div>
 
     <script>
-        // --- GAME LOGICA ---
         const canvas = document.getElementById('pacCanvas');
         const ctx = canvas.getContext('2d');
         const size = 20;
