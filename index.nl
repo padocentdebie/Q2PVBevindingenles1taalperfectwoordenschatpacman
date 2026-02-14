@@ -3,104 +3,120 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>BTV Zaandam 2026 - Surveillance Dashboard</title>
+    <title>BTV Woordenschat & Surveillance</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, collection, addDoc, query, where, getDocs, deleteDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-
-        const firebaseConfig = {
-            apiKey: "AIzaSyBRq1HFmhrpW_EMMZwpURrbTArz-L5iWT4",
-            authDomain: "pvaangifteinleveren-77dbe.firebaseapp.com",
-            projectId: "pvaangifteinleveren-77dbe",
-            storageBucket: "pvaangifteinleveren-77dbe.firebasestorage.app",
-            messagingSenderId: "20239054410",
-            appId: "1:20239054410:web:264b3c759312248d9f18b3"
-        };
-
-        let db;
-        try {
-            const app = initializeApp(firebaseConfig);
-            db = getFirestore(app);
-        } catch (e) {
-            console.warn("Firebase offline modus.");
-        }
-
-        window.saveScore = async () => {
-            const naam = document.getElementById('uNaam').value;
-            const klas = document.getElementById('uKlas').value;
-            const huidigeScore = parseInt(document.getElementById('pScore').innerText);
-            if(!db) return alert("Geen verbinding met database.");
-            if(huidigeScore > 0) {
-                await addDoc(collection(db, "pacman_scores"), { naam, klas, score: huidigeScore, ts: serverTimestamp() });
-                alert("Score opgeslagen in het systeem!");
-            }
-        };
-
-        window.resetLeaderboard = async () => {
-            const klas = document.getElementById('uKlas').value;
-            if(!db || !confirm("Leaderboard voor " + klas + " wissen?")) return;
-            const q = query(collection(db, "pacman_scores"), where("klas", "==", klas));
-            const snapshot = await getDocs(q);
-            await Promise.all(snapshot.docs.map(d => deleteDoc(d.ref)));
-            alert("Leaderboard gereset.");
-        };
-    </script>
-
     <style>
         body { background-color: #0f172a; touch-action: manipulation; }
         .bg-police { background-color: #002d5e; }
-        canvas { background: #000; border: 4px solid #1e40af; border-radius: 12px; box-shadow: 0 0 20px rgba(30, 64, 175, 0.4); }
+        canvas { background: #000; border: 4px solid #1e40af; border-radius: 12px; }
+        .quiz-card { background: white; color: #1e293b; padding: 2rem; rounded: 1rem; box-shadow: 0 10px 25px rgba(0,0,0,0.3); }
     </style>
 </head>
 <body class="text-slate-200 font-sans">
 
     <div id="loginOverlay" class="fixed inset-0 bg-police z-50 flex items-center justify-center p-4">
         <div class="bg-white p-8 rounded shadow-2xl w-full max-w-sm text-center border-t-8 border-yellow-500 text-slate-900">
-            <h1 class="font-black text-2xl mb-6 italic uppercase">BTV Surveillance 2026</h1>
+            <h1 class="font-black text-2xl mb-6 italic uppercase text-police">BTV Surveillance 2026</h1>
             <input type="text" id="uNaam" placeholder="Naam Agent" class="w-full border-2 p-3 rounded mb-4 font-bold text-center outline-none focus:border-blue-900">
             <select id="uKlas" class="w-full border-2 p-3 rounded mb-8 font-bold text-center outline-none focus:border-blue-900">
                 <option value="">Kies Eenheid</option>
                 <option>Delta</option><option>Echo</option><option>Foxtrot</option>
             </select>
-            <button onclick="login()" class="w-full bg-police text-white p-4 rounded font-black uppercase tracking-widest hover:bg-blue-900 transition-all">Start Patrouille</button>
+            <button onclick="startQuiz()" class="w-full bg-police text-white p-4 rounded font-black uppercase tracking-widest hover:bg-blue-900">Start Selectie</button>
+        </div>
+    </div>
+
+    <div id="quizOverlay" class="hidden fixed inset-0 bg-slate-900 z-40 flex items-center justify-center p-4">
+        <div class="quiz-card w-full max-w-lg text-center">
+            <h2 class="text-blue-900 font-black uppercase text-sm mb-2">Woordenschat Controle</h2>
+            <div class="text-xs mb-4 text-slate-500 uppercase font-bold">Voortgang: <span id="qCount" class="text-blue-600">0</span> / 5</div>
+            <p id="qText" class="text-xl font-bold mb-6 text-slate-800 italic">Laden...</p>
+            <div id="qOptions" class="grid grid-cols-1 gap-3"></div>
+            <p id="qFeedback" class="mt-4 font-bold text-sm hidden"></p>
         </div>
     </div>
 
     <div id="mainContent" class="hidden max-w-4xl mx-auto p-4 space-y-6">
         <header class="flex justify-between items-center bg-police p-4 rounded-xl border-b-4 border-yellow-500 shadow-lg">
             <div class="font-black italic uppercase text-xs">Eenheid: <span id="displayKlas" class="text-yellow-400"></span></div>
-            <div class="flex gap-2">
-                <button onclick="resetLeaderboard()" class="bg-red-700 px-3 py-1 rounded text-[10px] font-bold uppercase">Wis Dossiers</button>
-                <button onclick="location.reload()" class="bg-slate-700 px-3 py-1 rounded text-[10px] font-bold uppercase">Log uit</button>
+            <div class="text-white font-mono text-sm bg-blue-900/50 px-3 py-1 rounded-full border border-blue-500">
+                PV Punten: <span id="pScore" class="text-yellow-400">0</span>
             </div>
         </header>
 
-        <section class="bg-slate-900 p-6 rounded-3xl border-2 border-white/10 shadow-2xl">
-            <div class="flex justify-between items-center mb-6">
-                <h2 class="text-yellow-400 font-black italic uppercase text-xl tracking-tighter">BTV Pacman</h2>
-                <div class="flex items-center gap-4">
-                    <div class="text-right">
-                        <div class="text-[10px] text-slate-400 uppercase font-bold">PV Punten</div>
-                        <div id="pScore" class="text-2xl font-black text-white leading-none">0</div>
-                    </div>
-                    <button onclick="saveScore()" class="bg-green-600 px-4 py-2 rounded-lg font-black text-xs uppercase shadow-lg">Opslaan</button>
-                </div>
-            </div>
-            
-            <div class="relative flex justify-center">
+        <section class="bg-slate-900 p-6 rounded-3xl border-2 border-white/10 shadow-2xl relative">
+            <div class="flex justify-center">
                 <canvas id="pacCanvas" width="380" height="300"></canvas>
-                <div id="gameMsg" class="hidden absolute inset-0 bg-black/90 flex flex-col items-center justify-center text-center rounded-xl">
-                    <h3 class="text-red-500 font-black text-3xl mb-4 italic">CRASH!</h3>
-                    <button onclick="startPacGame()" class="bg-yellow-500 text-black px-8 py-3 rounded-full font-black uppercase">Nieuwe Patrouille</button>
-                </div>
             </div>
-            <p class="text-blue-400 text-[10px] mt-4 text-center font-bold uppercase tracking-widest animate-pulse">Bestuur de wagen met de pijltjestoetsen</p>
+            <div id="gameMsg" class="hidden absolute inset-0 bg-black/90 flex flex-col items-center justify-center text-center rounded-xl">
+                <h3 class="text-red-500 font-black text-3xl mb-4 italic">CRASH!</h3>
+                <button onclick="startQuiz()" class="bg-yellow-500 text-black px-8 py-3 rounded-full font-black uppercase">Nieuwe Test</button>
+            </div>
         </section>
     </div>
 
     <script>
+        // --- WOORDENSCHAT DATA ---
+        const vragen = [
+            { q: "Wat betekent 'adequaat'?", a: ["Snel", "Passend", "Gevaarlijk", "Langzaam"], c: 1 },
+            { q: "Wat is een 'incident'?", a: ["Een plan", "Een gebeurtenis", "Een voertuig", "Een beloning"], c: 1 },
+            { q: "Wat betekent 'preventief'?", a: ["Achteraf", "Ter voorkoming", "Heel streng", "Tijdelijk"], c: 1 },
+            { q: "Wat is 'legitimeren'?", a: ["Weglopen", "Bewijzen wie je bent", "Iets stelen", "Hulp roepen"], c: 1 },
+            { q: "Wat betekent 'escaleren'?", a: ["Kleiner worden", "Erger worden", "Stoppen", "Blijven praten"], c: 1 },
+            { q: "Wat is 'consistent'?", a: ["Steeds anders", "Hetzelfde blijven", "Zwak", "Heel boos"], c: 1 },
+            { q: "Wat betekent 'verifiëren'?", a: ["Controleren", "Verliezen", "Verstoppen", "Vergeten"], c: 0 }
+        ];
+
+        let quizProgress = 0;
+        let currentKlas = "";
+
+        // --- QUIZ FUNCTIES ---
+        function startQuiz() {
+            const naam = document.getElementById('uNaam').value;
+            currentKlas = document.getElementById('uKlas').value;
+            if(!naam || !currentKlas) return alert("Vul gegevens in!");
+            
+            document.getElementById('loginOverlay').style.display = 'none';
+            document.getElementById('gameMsg').classList.add('hidden');
+            document.getElementById('quizOverlay').classList.remove('hidden');
+            quizProgress = 0;
+            nextQuestion();
+        }
+
+        function nextQuestion() {
+            if(quizProgress >= 5) {
+                document.getElementById('quizOverlay').classList.add('hidden');
+                document.getElementById('mainContent').classList.remove('hidden');
+                document.getElementById('displayKlas').innerText = currentKlas;
+                startPacGame();
+                return;
+            }
+
+            document.getElementById('qCount').innerText = quizProgress;
+            const vraag = vragen[Math.floor(Math.random() * vragen.length)];
+            document.getElementById('qText').innerText = vraag.q;
+            const optDiv = document.getElementById('qOptions');
+            optDiv.innerHTML = "";
+
+            vraag.a.forEach((opt, i) => {
+                const btn = document.createElement('button');
+                btn.className = "w-full p-3 bg-slate-100 hover:bg-blue-100 text-slate-800 font-bold rounded transition-all";
+                btn.innerText = opt;
+                btn.onclick = () => {
+                    if(i === vraag.c) {
+                        quizProgress++;
+                        nextQuestion();
+                    } else {
+                        alert("FOUT! Je woordenschat-kennis schiet tekort. Start opnieuw bij 0.");
+                        quizProgress = 0;
+                        nextQuestion();
+                    }
+                };
+                optDiv.appendChild(btn);
+            });
+        }
+
+        // --- PACMAN ENGINE ---
         const canvas = document.getElementById('pacCanvas');
         const ctx = canvas.getContext('2d');
         const size = 20;
@@ -125,18 +141,9 @@
         ];
         let currentMap = [];
 
-        window.login = () => {
-            if(!document.getElementById('uNaam').value || !document.getElementById('uKlas').value) return alert("Vul gegevens in.");
-            document.getElementById('loginOverlay').style.display = 'none';
-            document.getElementById('mainContent').classList.remove('hidden');
-            document.getElementById('displayKlas').innerText = document.getElementById('uKlas').value;
-            startPacGame();
-        };
-
         function startPacGame() {
             gameActive = true; score = 0;
             document.getElementById('pScore').innerText = "0";
-            document.getElementById('gameMsg').classList.add('hidden');
             currentMap = JSON.parse(JSON.stringify(mapLayout));
             pac = { x: 9, y: 13, dir: 1, nextDir: 1 };
             ghosts = [
